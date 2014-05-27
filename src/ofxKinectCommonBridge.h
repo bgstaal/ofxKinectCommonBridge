@@ -85,12 +85,6 @@ class ofxKinectCommonBridge : protected ofThread {
 	void draw(const ofRectangle& rect);
 
 	/// draw the grayscale depth texture
-	void drawRawDepth(float x, float y, float w, float h);
-	void drawRawDepth(float x, float y);
-	void drawRawDepth(const ofPoint& point);
-	void drawRawDepth(const ofRectangle& rect);
-
-	/// draw the grayscale depth texture
 	void drawDepth(float x, float y, float w, float h);
 	void drawDepth(float x, float y);
 	void drawDepth(const ofPoint& point);
@@ -100,10 +94,6 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	vector<Skeleton> &getSkeletons();
 	void drawSkeleton(int index);
-
-	ofTexture &getRawDepthTexture() {
-		return rawDepthTex;
-	}
 
 	ofTexture &getDepthTexture() {
 		return depthTex;
@@ -135,16 +125,14 @@ class ofxKinectCommonBridge : protected ofThread {
 
   	bool bUseTexture;
 	ofTexture depthTex; ///< the depth texture
-	ofTexture rawDepthTex; ///<
 	ofTexture videoTex; ///< the RGB texture
 	//ofTexture irTex;
 
 	ofPixels videoPixels;
 	ofPixels videoPixelsBack;			///< rgb back
 	ofPixels depthPixels;
-	ofPixels depthPixelsBack;
-	ofShortPixels depthPixelsRaw;
-	ofShortPixels depthPixelsRawBack;	///< depth back
+	NUI_DEPTH_IMAGE_PIXEL *depthImagePixels; // depth pixels with full range
+	NUI_DEPTH_IMAGE_PIXEL *depthImagePixelsBack;
 
 	ofShortPixels irPixelsRaw;
 	ofShortPixels irPixelsBackRaw;
