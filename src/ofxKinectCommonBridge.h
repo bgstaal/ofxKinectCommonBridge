@@ -65,7 +65,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	bool isFrameNewDepth();
 	bool isNewSkeleton();
 
-	void setDepthClipping(float nearClip=500, float farClip=4000);
+	void setDepthClipping(float nearClip=500, float farClip=5000);
 	
 	/// updates the pixel buffers and textures
 	///
@@ -122,6 +122,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	void updateIRPixels();
 	bool bNearWhite;
 	float nearClipping, farClipping;
+	unsigned char nearColor, farColor;
 
   	bool bUseTexture;
 	ofTexture depthTex; ///< the depth texture

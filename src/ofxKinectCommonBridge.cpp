@@ -94,22 +94,15 @@ ofxKinectCommonBridge::ofxKinectCommonBridge(){
 //---------------------------------------------------------------------------
 void ofxKinectCommonBridge::setDepthClipping(float nearClip, float farClip){
 	nearClipping = nearClip;
-	farClipping = 10000;
+	farClipping = farClip;
 	updateDepthLookupTable();
 }
 
 //---------------------------------------------------------------------------
 void ofxKinectCommonBridge::updateDepthLookupTable()
 {
-	unsigned char nearColor = bNearWhite ? 255 : 0;
-	unsigned char farColor = bNearWhite ? 0 : 255;
-	unsigned int maxDepthLevels = 10001;
-	depthLookupTable.resize(maxDepthLevels);
-	depthLookupTable[0] = 0;
-	for(unsigned int i = 1; i < maxDepthLevels; i++)
-	{
-		depthLookupTable[i] = ofMap(i, nearClipping, farClipping, nearColor, farColor, true);
-	}
+	nearColor = bNearWhite ? 255 : 0;
+	farColor = bNearWhite ? 0 : 255;
 }
 
 /// is the current frame new?
@@ -136,6 +129,9 @@ vector<Skeleton> &ofxKinectCommonBridge::getSkeletons() {
 /// make sure to call this to update to the latest incoming frames
 void ofxKinectCommonBridge::update()
 {
+
+	//KinectMapColorFrameToSkeletonFrame
+
 	if(!bStarted)
 	{
 		ofLogError("ofxKinectCommonBridge::update") << "Kinect not started";
@@ -234,7 +230,8 @@ void ofxKinectCommonBridge::update()
 					if(pts[i].x > 0 && pts[i].x < depthFormat.dwWidth && pts[i].y > 0 && pts[i].y < depthFormat.dwHeight) 
 					{
 						unsigned short d = depthImagePixels[i].depth;
-						depthPixels[pts[i].y * depthFormat.dwWidth + pts[i].x] = d >= 1 ? ofMap(d, 500.0, 7000, 255, 0, true) : d; // TODO: Clipping based on parameters
+						//TODO: make sure all of the pixels are reset
+						depthPixels[pts[i].y * depthFormat.dwWidth + pts[i].x] = d >= 1 ? ofMap(d, nearClipping, farClipping, nearColor, farColor, true) : d; // TODO: Clipping based on parameters
 					} else {
 						depthPixels[pts[i].y * depthFormat.dwWidth + pts[i].x] = 0;
 					}
@@ -250,10 +247,9 @@ void ofxKinectCommonBridge::update()
 			for (int i = 0; i < numDepthPixels; i++)
 			{
 				unsigned short d = depthImagePixels[i].depth;
-				depthPixels[i] = d >= 1 ? ofMap(d, 500.0, 7000, 255, 0, true) : d; // TODO: Clipping based on parameters
+				depthPixels[i] = d >= 1 ? ofMap(d, nearClipping, farClipping, nearColor, farColor, true) : d; // TODO: Clipping based on parameters
 			}
 		}
-
 
 		if(bUseTexture) {
 			//depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
