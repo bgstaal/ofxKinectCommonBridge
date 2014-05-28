@@ -161,9 +161,4 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	NUI_IMAGE_RESOLUTION colorRes;
 	NUI_IMAGE_RESOLUTION depthRes;
-
-	INuiSensor *nuiSensor;
-	INuiCoordinateMapper *mapper;
-
-
 };

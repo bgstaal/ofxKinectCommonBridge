@@ -209,6 +209,8 @@ void ofxKinectCommonBridge::update()
 	// update depth pixels and texture if necessary
 	if(bNeedsUpdateDepth){
 
+		int numDepthPixels = depthFormat.dwWidth * depthFormat.dwHeight;
+
 		if(mappingColorToDepth) {
 			beginMappingColorToDepth = true;
 		}
@@ -221,10 +223,9 @@ void ofxKinectCommonBridge::update()
 		if(mappingDepthToColor) 
 		{ 
 			NUI_COLOR_IMAGE_POINT *pts = new NUI_COLOR_IMAGE_POINT[colorFormat.dwWidth*colorFormat.dwHeight];
-			//NUI_DEPTH_IMAGE_PIXEL * depth = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
-			
 			HRESULT mapResult;
-			mapResult = mapper->MapDepthFrameToColorFrame(depthRes, (depthFormat.dwWidth*depthFormat.dwHeight), depthImagePixels, NUI_IMAGE_TYPE_COLOR, colorRes, (depthFormat.dwWidth*depthFormat.dwHeight), pts);
+
+			KinectMapDepthFrameToColorFrame(hKinect, depthRes, numDepthPixels, depthImagePixels, NUI_IMAGE_TYPE_COLOR, colorRes, colorFormat.dwWidth * colorFormat.dwHeight, pts);
 
 			if(SUCCEEDED(mapResult))
 			{
@@ -232,10 +233,10 @@ void ofxKinectCommonBridge::update()
 				for( int i = 0; i < (depthFormat.dwWidth*depthFormat.dwHeight); i++ ) {
 					if(pts[i].x > 0 && pts[i].x < depthFormat.dwWidth && pts[i].y > 0 && pts[i].y < depthFormat.dwHeight) 
 					{
-						unsigned short d = depthImagePixels[pts[i].y * depthFormat.dwWidth + pts[i].x].depth;
-						depthPixels[i] = d >= 1 ? ofMap(d, 500.0, 7000, 255, 0, true) : d; // TODO: Clipping based on parameters
+						unsigned short d = depthImagePixels[i].depth;
+						depthPixels[pts[i].y * depthFormat.dwWidth + pts[i].x] = d >= 1 ? ofMap(d, 500.0, 7000, 255, 0, true) : d; // TODO: Clipping based on parameters
 					} else {
-						depthPixels[i] = 0;
+						depthPixels[pts[i].y * depthFormat.dwWidth + pts[i].x] = 0;
 					}
 				}
 			} else {
@@ -246,13 +247,10 @@ void ofxKinectCommonBridge::update()
 
 		} else {
 
-			int numPixels = depthFormat.dwWidth * depthFormat.dwHeight;
-
-			for (int i = 0; i < numPixels; i++)
+			for (int i = 0; i < numDepthPixels; i++)
 			{
 				unsigned short d = depthImagePixels[i].depth;
 				depthPixels[i] = d >= 1 ? ofMap(d, 500.0, 7000, 255, 0, true) : d; // TODO: Clipping based on parameters
-				//cout << "depth" << depthImagePixels[i].depth << endl;
 			}
 		}
 
@@ -431,19 +429,7 @@ bool ofxKinectCommonBridge::initSensor( int id )
 
 bool ofxKinectCommonBridge::initDepthStream( int width, int height, bool nearMode, bool mapDepthToColor )
 {
-
 	mappingDepthToColor = mapDepthToColor;
-
-	if (mappingDepthToColor)
-	{
-		// get the port ID from the simple api
-		const WCHAR* wcPortID = KinectGetPortID(hKinect);
-
-		// create an instance of the same sensor
-		INuiSensor* nuiSensor = nullptr;
-		HRESULT hr = NuiCreateSensorById(wcPortID, &nuiSensor);
-		nuiSensor->NuiGetCoordinateMapper(&mapper);
-	}
 
 	if(bStarted){
 		ofLogError("ofxKinectCommonBridge::initDepthStream") << " Cannot configure once the sensor has already started";
@@ -497,21 +483,6 @@ bool ofxKinectCommonBridge::initDepthStream( int width, int height, bool nearMod
 bool ofxKinectCommonBridge::initColorStream( int width, int height, bool mapColorToDepth )
 {
 	mappingColorToDepth = mapColorToDepth;
-	if(mappingColorToDepth && mapper == NULL) 
-	{
-		/*
-		// get the port ID from the simple api
-		const WCHAR* wcPortID = KinectGetPortID(hKinect);
-
-		// create an instance of the same sensor
-		INuiSensor* nuiSensor = nullptr;
-		HRESULT hr = NuiCreateSensorById(wcPortID, &nuiSensor);
-
-		nuiSensor->NuiGetCoordinateMapper(&mapper);
-		*/
-
-		ofLogWarning("ofxKinectCommonBridge::initColorStream") << " mapping color to depth is not yet supported " << endl;
-	}
 
 	if(bStarted){
 		ofLogError("ofxKinectCommonBridge::initColorStream") << " Cannot configure once the sensor has already started";
@@ -670,19 +641,6 @@ void ofxKinectCommonBridge::stop() {
 	if(bStarted){
 		waitForThread(true);
 		bStarted = false;
-
-		// release these interfaces when done
-		if (mapper)
-		{
-			mapper->Release();
-			mapper = nullptr;
-		}
-		if (nuiSensor)
-		{
-			nuiSensor->Release();
-			nuiSensor = nullptr;
-		}
-
 	}
 }	
 
