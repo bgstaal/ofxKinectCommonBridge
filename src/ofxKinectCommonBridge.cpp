@@ -123,15 +123,8 @@ void ofxKinectCommonBridge::setDepthClipping(float nearClip, float farClip){
 //---------------------------------------------------------------------------
 void ofxKinectCommonBridge::updateDepthLookupTable()
 {
-	unsigned char nearColor = bNearWhite ? 255 : 0;
-	unsigned char farColor = bNearWhite ? 0 : 255;
-	unsigned int maxDepthLevels = 10001;
-	depthLookupTable.resize(maxDepthLevels);
-	depthLookupTable[0] = 0;
-	for(unsigned int i = 1; i < maxDepthLevels; i++)
-	{
-		depthLookupTable[i] = ofMap(i, nearClipping, farClipping, nearColor, farColor, true);
-	}
+	nearColor = bNearWhite ? 255 : 0;
+	farColor = bNearWhite ? 0 : 255;
 }
 
 /// is the current frame new?
@@ -159,6 +152,49 @@ ofxKCBFace& ofxKinectCommonBridge::getFaceData() {
 vector<Skeleton> &ofxKinectCommonBridge::getSkeletons() {
 	return skeletons;
 }
+
+ofMesh &ofxKinectCommonBridge::getColoredPointCloud(float scale)
+{
+	ofMatrix4x4 m;
+	m.scale(scale, scale, scale);
+
+	return getColoredPointCloud(m);
+}
+
+ofMesh &ofxKinectCommonBridge::getColoredPointCloud(ofMatrix4x4 transform)
+{
+	if (isFrameNewVideo() || isFrameNewDepth())
+	{
+		pointCloud.clear();
+
+		int numColorPixels = colorFormat.dwWidth * colorFormat.dwHeight;
+		int numDepthPixels = depthFormat.dwWidth * depthFormat.dwHeight;
+
+		Vector4 *points = new Vector4[numColorPixels];
+		KinectMapColorFrameToSkeletonFrame(hKinect, NUI_IMAGE_TYPE_COLOR, colorRes, depthRes, numDepthPixels, depthImagePixels, numColorPixels, points);
+
+		for (int i = 0; i < numColorPixels; i++)
+		{
+			Vector4 p = points[i];
+
+			//if (p.x > 0 && p.y > 0 && p.z > 0) cout << "x: " << p.x << " y: " << p.y << " z: " << p.z << endl;
+
+			unsigned char *pix = videoPixels.getPixels();
+			int cIndex = i*4;
+			pointCloud.addColor(ofFloatColor(pix[cIndex+2] / 255.0f, pix[cIndex + 1] / 255.0f, pix[cIndex] / 255.0f));
+
+			ofVec3f vert = ofVec3f(p.x, p.y, p.z) * transform;
+			pointCloud.addVertex(vert);
+		}
+
+		delete[] points;
+	}
+
+	//cout << pointCloud.getNumVertices() << endl;
+
+	return pointCloud;
+}
+
 /// updates the pixel buffers and textures
 /// make sure to call this to update to the latest incoming frames
 void ofxKinectCommonBridge::update()
@@ -176,6 +212,7 @@ void ofxKinectCommonBridge::update()
 
 		swap(videoPixels,videoPixelsBack);
 
+		/*
 		// if you're mapping color pix to depth space, downscale color pix
 		if(mappingColorToDepth && beginMappingColorToDepth)
 		{
@@ -230,7 +267,8 @@ void ofxKinectCommonBridge::update()
 			delete[] pts;
 			delete[] depth;
 
-		}
+		}*/
+
 
 		bNeedsUpdateVideo = false;
 
@@ -263,68 +301,60 @@ void ofxKinectCommonBridge::update()
 	// update depth pixels and texture if necessary
 	if(bNeedsUpdateDepth){
 
+		int numDepthPixels = depthFormat.dwWidth * depthFormat.dwHeight;
+
 		if(mappingColorToDepth) {
 			beginMappingColorToDepth = true;
 		}
 
 		bIsFrameNewDepth = true;
-		swap(depthPixelsRaw, depthPixelsRawBack);
+		swap(depthImagePixels, depthImagePixelsBack);
 		bNeedsUpdateDepth = false;
 		
 		// if mapping depth to color, upscale depth
 		if(mappingDepthToColor) 
-		{
+		{ 
 			NUI_COLOR_IMAGE_POINT *pts = new NUI_COLOR_IMAGE_POINT[colorFormat.dwWidth*colorFormat.dwHeight];
-			NUI_DEPTH_IMAGE_PIXEL * depth = new NUI_DEPTH_IMAGE_PIXEL[(depthFormat.dwWidth*depthFormat.dwHeight)];
-			
-			int i = 0; 
-			while ( i < (depthFormat.dwWidth*depthFormat.dwHeight)) {
-				depth[i].depth = (USHORT) depthPixelsRaw.getPixels()[i];
-				depth[i].playerIndex = 0;
-				i++;
-			}
-			
 			HRESULT mapResult;
-			mapResult = mapper->MapDepthFrameToColorFrame(depthRes, (depthFormat.dwWidth*depthFormat.dwHeight), depth, NUI_IMAGE_TYPE_COLOR, colorRes, (depthFormat.dwWidth*depthFormat.dwHeight), pts);
+
+			KinectMapDepthFrameToColorFrame(hKinect, depthRes, numDepthPixels, depthImagePixels, NUI_IMAGE_TYPE_COLOR, colorRes, colorFormat.dwWidth * colorFormat.dwHeight, pts);
 
 			if(SUCCEEDED(mapResult))
 			{
 
 				for( int i = 0; i < (depthFormat.dwWidth*depthFormat.dwHeight); i++ ) {
-					if(pts[i].x > 0 && pts[i].x < depthFormat.dwWidth && pts[i].y > 0 && pts[i].y < depthFormat.dwHeight) {
-						depthPixels[i] = depthLookupTable[ ofClamp(depthPixelsRaw[pts[i].y * depthFormat.dwWidth + pts[i].x] >> 4, 0, depthLookupTable.size()-1 ) ];
+					if(pts[i].x > 0 && pts[i].x < depthFormat.dwWidth && pts[i].y > 0 && pts[i].y < depthFormat.dwHeight) 
+					{
+						unsigned short d = depthImagePixels[i].depth;
+						//TODO: make sure all of the pixels are reset
+						depthPixels[pts[i].y * depthFormat.dwWidth + pts[i].x] = d >= 1 ? ofMap(d, nearClipping, farClipping, nearColor, farColor, true) : d; // TODO: Clipping based on parameters
 					} else {
-						depthPixels[i] = 0;
+						depthPixels[pts[i].y * depthFormat.dwWidth + pts[i].x] = 0;
 					}
 				}
 			} else {
-				ofLog() << " mapping error " << mapResult << endl;
+				ofLog() << " mapping error " << mapResult << endl; 
 			}
 
 			delete[] pts;
-			delete[] depth;
-		
-			for(int i = 0; i < depthPixels.getWidth()*depthPixels.getHeight(); i++) {
-				depthPixelsRaw[i] = depthPixelsRaw[i] >> 4;
-			}
 
 		} else {
 
-			for(int i = 0; i < depthPixels.getWidth()*depthPixels.getHeight(); i++) {
-				depthPixels[i] = depthLookupTable[ ofClamp(depthPixelsRaw[i] >> 4, 0, depthLookupTable.size()-1 ) ];
-				depthPixelsRaw[i] = depthPixelsRaw[i] >> 4;
+			for (int i = 0; i < numDepthPixels; i++)
+			{
+				unsigned short d = depthImagePixels[i].depth;
+				depthPixels[i] = d >= 1 ? ofMap(d, nearClipping, farClipping, nearColor, farColor, true) : d; // TODO: Clipping based on parameters
 			}
 		}
-
 
 		if(bUseTexture) {
 			//depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
 			if( bProgrammableRenderer ) {
 				depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
-				rawDepthTex.loadData(depthPixelsRaw.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
+				//rawDepthTex.loadData(depthPixelsRaw.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_RED);
 			} else {
 				depthTex.loadData(depthPixels.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
-				rawDepthTex.loadData(depthPixelsRaw.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE16);
+				//rawDepthTex.loadData(depthPixelsRaw.getPixels(), depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE16);
 			}
 		}
 	} else {
@@ -393,11 +423,6 @@ ofPixels & ofxKinectCommonBridge::getDepthPixelsRef(){       	///< grayscale val
 }
 
 //------------------------------------
-ofShortPixels & ofxKinectCommonBridge::getRawDepthPixelsRef(){
-	return depthPixelsRaw;
-}
-
-//------------------------------------
 void ofxKinectCommonBridge::setUseTexture(bool bUse){
 	bUseTexture = bUse;
 }
@@ -429,28 +454,6 @@ void ofxKinectCommonBridge::draw(const ofPoint & point) {
 //----------------------------------------------------------
 void ofxKinectCommonBridge::draw(const ofRectangle & rect) {
 	draw(rect.x, rect.y, rect.width, rect.height);
-}
-
-//----------------------------------------------------------
-void ofxKinectCommonBridge::drawRawDepth(float _x, float _y, float _w, float _h) {
-	if(bUseTexture) {
-		rawDepthTex.draw(_x, _y, _w, _h);
-	}
-}
-
-//----------------------------------------------------------
-void ofxKinectCommonBridge::drawRawDepth(float _x, float _y) {
-	drawRawDepth(_x, _y, (float)colorFormat.dwWidth, (float)colorFormat.dwHeight);
-}
-
-//----------------------------------------------------------
-void ofxKinectCommonBridge::drawRawDepth(const ofPoint & point) {
-	drawRawDepth(point.x, point.y);
-}
-
-//----------------------------------------------------------
-void ofxKinectCommonBridge::drawRawDepth(const ofRectangle & rect) {
-	drawRawDepth(rect.x, rect.y, rect.width, rect.height);
 }
 
 //----------------------------------------------------------
@@ -543,19 +546,7 @@ bool ofxKinectCommonBridge::initSensor( int id )
 
 bool ofxKinectCommonBridge::initDepthStream( int width, int height, bool nearMode, bool mapDepthToColor )
 {
-
 	mappingDepthToColor = mapDepthToColor;
-
-	if (mappingDepthToColor)
-	{
-		// get the port ID from the simple api
-		const WCHAR* wcPortID = KinectGetPortID(hKinect);
-
-		// create an instance of the same sensor
-		INuiSensor* nuiSensor = nullptr;
-		HRESULT hr = NuiCreateSensorById(wcPortID, &nuiSensor);
-		nuiSensor->NuiGetCoordinateMapper(&mapper);
-	}
 
 	if(bStarted){
 		ofLogError("ofxKinectCommonBridge::initDepthStream") << " Cannot configure once the sensor has already started";
@@ -577,14 +568,12 @@ bool ofxKinectCommonBridge::initDepthStream( int width, int height, bool nearMod
 		
 		if(bProgrammableRenderer) {
 			depthPixels.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_COLOR);
-			depthPixelsBack.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_COLOR);
 		} else {
 			depthPixels.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
-			depthPixelsBack.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
 		}
 
-		depthPixelsRaw.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
-		depthPixelsRawBack.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
+		depthImagePixels = new NUI_DEPTH_IMAGE_PIXEL[depthFormat.dwWidth * depthFormat.dwHeight];
+		depthImagePixelsBack = new NUI_DEPTH_IMAGE_PIXEL[depthFormat.dwWidth * depthFormat.dwHeight];
 
 		if(bUseTexture){
 
@@ -593,15 +582,9 @@ bool ofxKinectCommonBridge::initDepthStream( int width, int height, bool nearMod
 				depthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R8);//, true, GL_R8, GL_UNSIGNED_BYTE);
 				depthTex.setRGToRGBASwizzles(true);
 
-				//rawDepthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_R16, true, GL_RED, GL_UNSIGNED_SHORT);
-				rawDepthTex.allocate(depthPixelsRaw, true);
-				rawDepthTex.setRGToRGBASwizzles(true);
-
-				cout << rawDepthTex.getWidth() << " " << rawDepthTex.getHeight() << endl;
 				//depthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_RGB);
 			} else {
 				depthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE);
-				rawDepthTex.allocate(depthFormat.dwWidth, depthFormat.dwHeight, GL_LUMINANCE16);
 			}
 		}
 
@@ -617,21 +600,6 @@ bool ofxKinectCommonBridge::initDepthStream( int width, int height, bool nearMod
 bool ofxKinectCommonBridge::initColorStream( int width, int height, bool mapColorToDepth )
 {
 	mappingColorToDepth = mapColorToDepth;
-	if(mappingColorToDepth && mapper == NULL) 
-	{
-		/*
-		// get the port ID from the simple api
-		const WCHAR* wcPortID = KinectGetPortID(hKinect);
-
-		// create an instance of the same sensor
-		INuiSensor* nuiSensor = nullptr;
-		HRESULT hr = NuiCreateSensorById(wcPortID, &nuiSensor);
-
-		nuiSensor->NuiGetCoordinateMapper(&mapper);
-		*/
-
-		ofLogWarning("ofxKinectCommonBridge::initColorStream") << " mapping color to depth is not yet supported " << endl;
-	}
 
 	if(bStarted){
 		ofLogError("ofxKinectCommonBridge::initColorStream") << " Cannot configure once the sensor has already started";
@@ -916,21 +884,6 @@ void ofxKinectCommonBridge::stop() {
 	if(bStarted){
 		waitForThread(true);
 		bStarted = false;
-
-		KinectCloseSensor(hKinect); // release the handle
-
-		// release these interfaces when done
-		if (mapper)
-		{
-			mapper->Release();
-			mapper = nullptr;
-		}
-		if (nuiSensor)
-		{
-			nuiSensor->Release();
-			nuiSensor = nullptr;
-		}
-
 	}
 }
 
@@ -946,10 +899,18 @@ void ofxKinectCommonBridge::threadedFunction(){
 	//how can we tell?
 	while(isThreadRunning()) {
 
+		/*
         if( KinectIsDepthFrameReady(hKinect) && SUCCEEDED( KinectGetDepthFrame(hKinect, depthFormat.cbBufferSize, (BYTE*)depthPixelsRawBack.getPixels(), &timestamp) ) )
 		{
 			bNeedsUpdateDepth = true;
-        }
+        }*/
+
+		int numPixels = depthFormat.dwHeight * depthFormat.dwWidth;
+
+		if (KinectIsDepthFrameReady(hKinect) && SUCCEEDED( KinectGetDepthImagePixels(hKinect, numPixels, depthImagePixels, &timestamp) ) )
+		{
+			bNeedsUpdateDepth = true;
+		}
 
 		if(bVideoIsInfrared)
 		{

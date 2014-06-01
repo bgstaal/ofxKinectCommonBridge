@@ -131,7 +131,7 @@ class ofxKinectCommonBridge : protected ofThread {
 		return bIsFaceNew;
 	}
 
-	void setDepthClipping(float nearClip=500, float farClip=4000);
+	void setDepthClipping(float nearClip=500, float farClip=5000);
 	
 	/// updates the pixel buffers and textures
 	///
@@ -153,12 +153,6 @@ class ofxKinectCommonBridge : protected ofThread {
 	void draw(const ofRectangle& rect);
 
 	/// draw the grayscale depth texture
-	void drawRawDepth(float x, float y, float w, float h);
-	void drawRawDepth(float x, float y);
-	void drawRawDepth(const ofPoint& point);
-	void drawRawDepth(const ofRectangle& rect);
-
-	/// draw the grayscale depth texture
 	void drawDepth(float x, float y, float w, float h);
 	void drawDepth(float x, float y);
 	void drawDepth(const ofPoint& point);
@@ -166,12 +160,11 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	void drawIR( float x, float y, float w, float h );
 
+	ofMesh &getColoredPointCloud(float scale = 100.0f);
+	ofMesh &getColoredPointCloud(ofMatrix4x4 transform);
+
 	vector<Skeleton> &getSkeletons();
 	void drawSkeleton(int index);
-
-	ofTexture &getRawDepthTexture() {
-		return rawDepthTex;
-	}
 
 	ofTexture &getDepthTexture() {
 		return depthTex;
@@ -204,6 +197,7 @@ class ofxKinectCommonBridge : protected ofThread {
   	bool bInited;
 	bool bStarted;
 	vector<Skeleton> skeletons;
+	ofMesh pointCloud;
 
 	//quantize depth buffer to 8 bit range
 	vector<unsigned char> depthLookupTable;
@@ -212,12 +206,12 @@ class ofxKinectCommonBridge : protected ofThread {
 	void updateIRPixels();
 	bool bNearWhite;
 	float nearClipping, farClipping;
+	unsigned char nearColor, farColor;
 
 	void updateFaceTrackingData( IFTResult* ftResult );
 
   	bool bUseTexture;
 	ofTexture depthTex; ///< the depth texture
-	ofTexture rawDepthTex; ///<
 	ofTexture videoTex; ///< the RGB texture
 
 	// face
@@ -227,9 +221,8 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofPixels videoPixels;
 	ofPixels videoPixelsBack;			///< rgb back
 	ofPixels depthPixels;
-	ofPixels depthPixelsBack;
-	ofShortPixels depthPixelsRaw;
-	ofShortPixels depthPixelsRawBack;	///< depth back
+	NUI_DEPTH_IMAGE_PIXEL *depthImagePixels; // depth pixels with full range
+	NUI_DEPTH_IMAGE_PIXEL *depthImagePixelsBack;
 
 	ofShortPixels irPixelsRaw;
 	ofShortPixels irPixelsBackRaw;
@@ -284,9 +277,4 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	NUI_IMAGE_RESOLUTION colorRes;
 	NUI_IMAGE_RESOLUTION depthRes;
-
-	INuiSensor *nuiSensor;
-	INuiCoordinateMapper *mapper;
-
-
 };
