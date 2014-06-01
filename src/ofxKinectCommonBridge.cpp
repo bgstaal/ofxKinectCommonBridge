@@ -171,7 +171,7 @@ ofMesh &ofxKinectCommonBridge::getColoredPointCloud(ofMatrix4x4 transform)
 		int numDepthPixels = depthFormat.dwWidth * depthFormat.dwHeight;
 
 		Vector4 *points = new Vector4[numColorPixels];
-		KinectMapColorFrameToSkeletonFrame(hKinect, NUI_IMAGE_TYPE_COLOR, colorRes, depthRes, numDepthPixels, depthImagePixels, numColorPixels, points);
+		KinectMapColorFrameToSkeletonFrame(hKinect, NUI_IMAGE_TYPE_COLOR, colorRes, depthRes, numDepthPixels, depthImagePixels.get(), numColorPixels, points);
 
 		for (int i = 0; i < numColorPixels; i++)
 		{
@@ -317,7 +317,7 @@ void ofxKinectCommonBridge::update()
 			NUI_COLOR_IMAGE_POINT *pts = new NUI_COLOR_IMAGE_POINT[colorFormat.dwWidth*colorFormat.dwHeight];
 			HRESULT mapResult;
 
-			KinectMapDepthFrameToColorFrame(hKinect, depthRes, numDepthPixels, depthImagePixels, NUI_IMAGE_TYPE_COLOR, colorRes, colorFormat.dwWidth * colorFormat.dwHeight, pts);
+			KinectMapDepthFrameToColorFrame(hKinect, depthRes, numDepthPixels, depthImagePixels.get(), NUI_IMAGE_TYPE_COLOR, colorRes, colorFormat.dwWidth * colorFormat.dwHeight, pts);
 
 			if(SUCCEEDED(mapResult))
 			{
@@ -572,8 +572,8 @@ bool ofxKinectCommonBridge::initDepthStream( int width, int height, bool nearMod
 			depthPixels.allocate(depthFormat.dwWidth, depthFormat.dwHeight, OF_IMAGE_GRAYSCALE);
 		}
 
-		depthImagePixels = new NUI_DEPTH_IMAGE_PIXEL[depthFormat.dwWidth * depthFormat.dwHeight];
-		depthImagePixelsBack = new NUI_DEPTH_IMAGE_PIXEL[depthFormat.dwWidth * depthFormat.dwHeight];
+		depthImagePixels = unique_ptr<NUI_DEPTH_IMAGE_PIXEL[]>(new NUI_DEPTH_IMAGE_PIXEL[depthFormat.dwWidth * depthFormat.dwHeight]);
+		depthImagePixelsBack = unique_ptr<NUI_DEPTH_IMAGE_PIXEL[]>(new NUI_DEPTH_IMAGE_PIXEL[depthFormat.dwWidth * depthFormat.dwHeight]);
 
 		if(bUseTexture){
 
@@ -898,16 +898,9 @@ void ofxKinectCommonBridge::threadedFunction(){
 	//JG: DO WE NEED TO BAIL ON THIS LOOP IF THE DEVICE QUITS? 
 	//how can we tell?
 	while(isThreadRunning()) {
-
-		/*
-        if( KinectIsDepthFrameReady(hKinect) && SUCCEEDED( KinectGetDepthFrame(hKinect, depthFormat.cbBufferSize, (BYTE*)depthPixelsRawBack.getPixels(), &timestamp) ) )
-		{
-			bNeedsUpdateDepth = true;
-        }*/
-
 		int numPixels = depthFormat.dwHeight * depthFormat.dwWidth;
 
-		if (KinectIsDepthFrameReady(hKinect) && SUCCEEDED( KinectGetDepthImagePixels(hKinect, numPixels, depthImagePixels, &timestamp) ) )
+		if (KinectIsDepthFrameReady(hKinect) && SUCCEEDED( KinectGetDepthImagePixels(hKinect, numPixels, depthImagePixels.get(), &timestamp) ) )
 		{
 			bNeedsUpdateDepth = true;
 		}
