@@ -125,13 +125,53 @@ bool ofxKinectCommonBridge::isNewSkeleton() {
 vector<Skeleton> &ofxKinectCommonBridge::getSkeletons() {
 	return skeletons;
 }
+
+ofMesh &ofxKinectCommonBridge::getColoredPointCloud(float scale)
+{
+	ofMatrix4x4 m;
+	m.scale(scale, scale, scale);
+
+	return getColoredPointCloud(m);
+}
+
+ofMesh &ofxKinectCommonBridge::getColoredPointCloud(ofMatrix4x4 transform)
+{
+	if (isFrameNewVideo() || isFrameNewDepth())
+	{
+		pointCloud.clear();
+
+		int numColorPixels = colorFormat.dwWidth * colorFormat.dwHeight;
+		int numDepthPixels = depthFormat.dwWidth * depthFormat.dwHeight;
+
+		Vector4 *points = new Vector4[numColorPixels];
+		KinectMapColorFrameToSkeletonFrame(hKinect, NUI_IMAGE_TYPE_COLOR, colorRes, depthRes, numDepthPixels, depthImagePixels, numColorPixels, points);
+
+		for (int i = 0; i < numColorPixels; i++)
+		{
+			Vector4 p = points[i];
+
+			//if (p.x > 0 && p.y > 0 && p.z > 0) cout << "x: " << p.x << " y: " << p.y << " z: " << p.z << endl;
+
+			unsigned char *pix = videoPixels.getPixels();
+			int cIndex = i*4;
+			pointCloud.addColor(ofFloatColor(pix[cIndex+2] / 255.0f, pix[cIndex + 1] / 255.0f, pix[cIndex] / 255.0f));
+
+			ofVec3f vert = ofVec3f(p.x, p.y, p.z) * transform;
+			pointCloud.addVertex(vert);
+		}
+
+		delete[] points;
+	}
+
+	//cout << pointCloud.getNumVertices() << endl;
+
+	return pointCloud;
+}
+
 /// updates the pixel buffers and textures
 /// make sure to call this to update to the latest incoming frames
 void ofxKinectCommonBridge::update()
 {
-
-	//KinectMapColorFrameToSkeletonFrame
-
 	if(!bStarted)
 	{
 		ofLogError("ofxKinectCommonBridge::update") << "Kinect not started";

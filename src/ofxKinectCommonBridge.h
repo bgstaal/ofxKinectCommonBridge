@@ -92,6 +92,9 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	void drawIR( float x, float y, float w, float h );
 
+	ofMesh &getColoredPointCloud(float scale = 100.0f);
+	ofMesh &getColoredPointCloud(ofMatrix4x4 transform);
+
 	vector<Skeleton> &getSkeletons();
 	void drawSkeleton(int index);
 
@@ -114,6 +117,7 @@ class ofxKinectCommonBridge : protected ofThread {
   	bool bInited;
 	bool bStarted;
 	vector<Skeleton> skeletons;
+	ofMesh pointCloud;
 
 	//quantize depth buffer to 8 bit range
 	vector<unsigned char> depthLookupTable;
