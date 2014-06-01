@@ -5,8 +5,8 @@ void testApp::setup(){
 
 	kinect.initSensor();
 	//kinect.initIRStream(640, 480);
-	kinect.initColorStream(640, 480, true);
-	kinect.initDepthStream(640, 480, true);
+	kinect.initColorStream(640, 480, false);
+	kinect.initDepthStream(640, 480, false);
 	kinect.initSkeletonStream(true);
 
 	//simple start
