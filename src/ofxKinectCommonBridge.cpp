@@ -90,6 +90,7 @@ ofxKinectCommonBridge::ofxKinectCommonBridge(){
 
 	beginMappingColorToDepth = false;
 
+	bUsingPointCloud = false;
 	bIsFrameNewVideo = false;
 	bNeedsUpdateVideo = false;
 	bIsFrameNewDepth = false;
@@ -117,12 +118,6 @@ ofxKinectCommonBridge::ofxKinectCommonBridge(){
 void ofxKinectCommonBridge::setDepthClipping(float nearClip, float farClip){
 	nearClipping = nearClip;
 	farClipping = farClip;
-	updateDepthLookupTable();
-}
-
-//---------------------------------------------------------------------------
-void ofxKinectCommonBridge::updateDepthLookupTable()
-{
 	nearColor = bNearWhite ? 255 : 0;
 	farColor = bNearWhite ? 0 : 255;
 }
@@ -153,44 +148,12 @@ vector<Skeleton> &ofxKinectCommonBridge::getSkeletons() {
 	return skeletons;
 }
 
-ofMesh &ofxKinectCommonBridge::getColoredPointCloud(float scale)
+
+ofVboMesh &ofxKinectCommonBridge::getColoredPointCloud()
 {
-	ofMatrix4x4 m;
-	m.scale(scale, scale, scale);
-
-	return getColoredPointCloud(m);
-}
-
-ofMesh &ofxKinectCommonBridge::getColoredPointCloud(ofMatrix4x4 transform)
-{
-	if (isFrameNewVideo() || isFrameNewDepth())
-	{
-		pointCloud.clear();
-
-		int numColorPixels = colorFormat.dwWidth * colorFormat.dwHeight;
-		int numDepthPixels = depthFormat.dwWidth * depthFormat.dwHeight;
-
-		Vector4 *points = new Vector4[numColorPixels];
-		KinectMapColorFrameToSkeletonFrame(hKinect, NUI_IMAGE_TYPE_COLOR, colorRes, depthRes, numDepthPixels, depthImagePixels.get(), numColorPixels, points);
-
-		for (int i = 0; i < numColorPixels; i++)
-		{
-			Vector4 p = points[i];
-
-			//if (p.x > 0 && p.y > 0 && p.z > 0) cout << "x: " << p.x << " y: " << p.y << " z: " << p.z << endl;
-
-			unsigned char *pix = videoPixels.getPixels();
-			int cIndex = i*4;
-			pointCloud.addColor(ofFloatColor(pix[cIndex+2] / 255.0f, pix[cIndex + 1] / 255.0f, pix[cIndex] / 255.0f));
-
-			ofVec3f vert = ofVec3f(p.x, p.y, p.z) * transform;
-			pointCloud.addVertex(vert);
-		}
-
-		delete[] points;
-	}
-
-	//cout << pointCloud.getNumVertices() << endl;
+	lock();
+	pointCloud = pointCloudBack;
+	unlock();
 
 	return pointCloud;
 }
@@ -755,6 +718,24 @@ bool ofxKinectCommonBridge::initSkeletonStream( bool seated )
 	return false;
 }
 
+bool ofxKinectCommonBridge::initPointCloud( unsigned int nthPixelAsPoint, float scale, bool useColor )
+{
+	ofMatrix4x4 t;
+	t.scale(scale, scale, scale);
+
+	return initPointCloud(nthPixelAsPoint, t, useColor);
+}
+
+bool ofxKinectCommonBridge::initPointCloud( unsigned int nthPixelAsPoint, ofMatrix4x4 transform, bool useColor )
+{
+	bUsingPointCloud = true;
+	bPointCloudUseColor = useColor;
+	pointCloudTransform = transform;
+	pointCloudNthPixelAsPoint = nthPixelAsPoint;
+
+	return true;
+}
+
 //----------------------------------------------------------
 bool ofxKinectCommonBridge::start()
 {
@@ -900,7 +881,7 @@ void ofxKinectCommonBridge::threadedFunction(){
 	while(isThreadRunning()) {
 		int numPixels = depthFormat.dwHeight * depthFormat.dwWidth;
 
-		if (KinectIsDepthFrameReady(hKinect) && SUCCEEDED( KinectGetDepthImagePixels(hKinect, numPixels, depthImagePixels.get(), &timestamp) ) )
+		if (KinectIsDepthFrameReady(hKinect) && SUCCEEDED( KinectGetDepthImagePixels(hKinect, numPixels, depthImagePixelsBack.get(), &timestamp) ) )
 		{
 			bNeedsUpdateDepth = true;
 		}
@@ -1003,6 +984,40 @@ void ofxKinectCommonBridge::threadedFunction(){
 					bUpdateFaces = true;
                 }
             }
+		}
+
+		if (bUsingPointCloud && (bNeedsUpdateDepth || bNeedsUpdateVideo))
+		{
+			lock();
+			pointCloudBack.clear();
+
+			int numColorPixels = colorFormat.dwWidth * colorFormat.dwHeight;
+			int numDepthPixels = depthFormat.dwWidth * depthFormat.dwHeight;
+
+			Vector4 *points = new Vector4[numColorPixels];
+			KinectMapColorFrameToSkeletonFrame(hKinect, NUI_IMAGE_TYPE_COLOR, colorRes, depthRes, numDepthPixels, depthImagePixelsBack.get(), numColorPixels, points);
+
+			for (int i = 0; i < numColorPixels; i++)
+			{
+				Vector4 p = points[i];
+
+				if (i % pointCloudNthPixelAsPoint == 0)
+				{
+					if (bPointCloudUseColor)
+					{
+						unsigned char *pix = videoPixelsBack.getPixels();
+						int cIndex = i*4;
+						pointCloudBack.addColor(ofFloatColor(pix[cIndex+2] / 255.0f, pix[cIndex + 1] / 255.0f, pix[cIndex] / 255.0f));
+					}
+					
+					ofVec3f vert = ofVec3f(p.x, p.y, p.z) * pointCloudTransform;
+					pointCloudBack.addVertex(vert);
+				}
+				
+			}
+
+			delete[] points;
+			unlock();
 		}
 
 		ofSleepMillis(10);

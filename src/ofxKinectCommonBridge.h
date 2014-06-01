@@ -109,6 +109,9 @@ class ofxKinectCommonBridge : protected ofThread {
 	bool initFaceTracking(); // no params, can't use with other stuff either.
 	bool initIRStream( int width, int height );
 	bool initSkeletonStream( bool seated );
+	bool initPointCloud( unsigned int nthPixelAsPoint = 2, float scale = 100.0f, bool useColor = true );
+	bool initPointCloud( unsigned int nthPixelAsPoint, ofMatrix4x4 transform, bool useColor = true );
+	
 	bool start();
 
 	// audio functionality
@@ -160,8 +163,7 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	void drawIR( float x, float y, float w, float h );
 
-	ofMesh &getColoredPointCloud(float scale = 100.0f);
-	ofMesh &getColoredPointCloud(ofMatrix4x4 transform);
+	ofVboMesh &getColoredPointCloud();
 
 	vector<Skeleton> &getSkeletons();
 	void drawSkeleton(int index);
@@ -197,11 +199,12 @@ class ofxKinectCommonBridge : protected ofThread {
   	bool bInited;
 	bool bStarted;
 	vector<Skeleton> skeletons;
-	ofMesh pointCloud;
+	ofVboMesh pointCloud;
+	ofMesh pointCloudBack;
+	ofMatrix4x4 pointCloudTransform;
+	unsigned int pointCloudNthPixelAsPoint;
+	bool bPointCloudUseColor;
 
-	//quantize depth buffer to 8 bit range
-	vector<unsigned char> depthLookupTable;
-	void updateDepthLookupTable();
 	void updateDepthPixels();
 	void updateIRPixels();
 	bool bNearWhite;
@@ -266,6 +269,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	bool bVideoIsInfrared;
 	bool bUsingSkeletons;
 	bool bUsingDepth;
+	bool bUsingPointCloud;
 
 	BYTE *irPixelByteArray;
 
