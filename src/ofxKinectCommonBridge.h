@@ -135,6 +135,8 @@ class ofxKinectCommonBridge : protected ofThread {
 	}
 
 	void setDepthClipping(float nearClip=500, float farClip=5000);
+	void setPointCloudTransform(const ofMatrix4x4 &t);
+	ofMatrix4x4 getPointCloudTransform();
 	
 	/// updates the pixel buffers and textures
 	///

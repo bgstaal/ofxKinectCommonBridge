@@ -158,6 +158,16 @@ ofVboMesh &ofxKinectCommonBridge::getColoredPointCloud()
 	return pointCloud;
 }
 
+void ofxKinectCommonBridge::setPointCloudTransform(const ofMatrix4x4 &t)
+{
+	pointCloudTransform = t;
+}
+
+ofMatrix4x4 ofxKinectCommonBridge::getPointCloudTransform()
+{
+	return pointCloudTransform;
+}
+
 /// updates the pixel buffers and textures
 /// make sure to call this to update to the latest incoming frames
 void ofxKinectCommonBridge::update()
