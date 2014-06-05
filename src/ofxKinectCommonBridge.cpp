@@ -149,7 +149,7 @@ vector<Skeleton> &ofxKinectCommonBridge::getSkeletons() {
 }
 
 
-ofVboMesh &ofxKinectCommonBridge::getColoredPointCloud()
+ofVboMesh &ofxKinectCommonBridge::getPointCloud()
 {
 	lock();
 		pointCloud = pointCloudBack;
