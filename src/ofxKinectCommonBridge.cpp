@@ -152,7 +152,7 @@ vector<Skeleton> &ofxKinectCommonBridge::getSkeletons() {
 ofVboMesh &ofxKinectCommonBridge::getColoredPointCloud()
 {
 	lock();
-	pointCloud = pointCloudBack;
+		pointCloud = pointCloudBack;
 	unlock();
 
 	return pointCloud;
@@ -998,35 +998,43 @@ void ofxKinectCommonBridge::threadedFunction(){
 
 		if (bUsingPointCloud && (bNeedsUpdateDepth || bNeedsUpdateVideo))
 		{
-			lock();
-			pointCloudBack.clear();
-
 			int numColorPixels = colorFormat.dwWidth * colorFormat.dwHeight;
 			int numDepthPixels = depthFormat.dwWidth * depthFormat.dwHeight;
 
 			Vector4 *points = new Vector4[numColorPixels];
 			KinectMapColorFrameToSkeletonFrame(hKinect, NUI_IMAGE_TYPE_COLOR, colorRes, depthRes, numDepthPixels, depthImagePixelsBack.get(), numColorPixels, points);
 
+			vector<ofFloatColor> colors;
+			vector<ofVec3f> verts;
+
 			for (int i = 0; i < numColorPixels; i++)
 			{
-				Vector4 p = points[i];
-
+				
 				if (i % pointCloudNthPixelAsPoint == 0)
 				{
+					Vector4 p = points[i];
+
 					if (bPointCloudUseColor)
 					{
 						unsigned char *pix = videoPixelsBack.getPixels();
 						int cIndex = i*4;
-						pointCloudBack.addColor(ofFloatColor(pix[cIndex+2] / 255.0f, pix[cIndex + 1] / 255.0f, pix[cIndex] / 255.0f));
+						colors.push_back(ofFloatColor(pix[cIndex+2] / 255.0f, pix[cIndex + 1] / 255.0f, pix[cIndex] / 255.0f));
+
+						//pointCloudBack.addColor();
 					}
 					
-					ofVec3f vert = ofVec3f(p.x, p.y, p.z) * pointCloudTransform;
-					pointCloudBack.addVertex(vert);
+					verts.push_back(ofVec3f(p.x, p.y, p.z) * pointCloudTransform);
+					//pointCloudBack.addVertex(vert);
 				}
 				
 			}
 
 			delete[] points;
+
+			lock();
+				pointCloudBack.clear();
+				pointCloudBack.addVertices(verts);
+				if (bPointCloudUseColor) pointCloudBack.addColors(colors);
 			unlock();
 		}
 
