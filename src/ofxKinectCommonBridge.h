@@ -186,6 +186,17 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	ofxKCBFace& getFaceData();
 
+	wstring getPortID()
+	{
+		return portID;
+	}
+
+	string getPortIDAsString()
+	{
+		string id(portID.begin(), portID.end());
+		return id;
+	}
+
 	void setSpeechGrammarFile(string path) {
 		grammarFile = path;
 	}
@@ -206,6 +217,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	ofMatrix4x4 pointCloudTransform;
 	unsigned int pointCloudNthPixelAsPoint;
 	bool bPointCloudUseColor;
+	wstring portID;
 
 	void updateDepthPixels();
 	void updateIRPixels();

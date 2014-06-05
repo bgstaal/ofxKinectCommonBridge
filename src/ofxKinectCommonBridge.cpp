@@ -502,6 +502,8 @@ bool ofxKinectCommonBridge::initSensor( int id )
 		return false;
 	}
 
+	this->portID = wstring(portID);
+
 	hKinect = KinectOpenSensor(portID);
 
 	if(!hKinect) {
