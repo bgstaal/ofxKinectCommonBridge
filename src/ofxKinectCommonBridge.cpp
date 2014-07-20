@@ -875,6 +875,7 @@ bool ofxKinectCommonBridge::initSpeech()
 //----------------------------------------------------------
 void ofxKinectCommonBridge::stop() {
 	if(bStarted){
+		if (hKinect) KinectCloseSensor(hKinect);
 		waitForThread(true);
 		bStarted = false;
 	}
