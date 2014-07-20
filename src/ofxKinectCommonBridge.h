@@ -165,7 +165,7 @@ class ofxKinectCommonBridge : protected ofThread {
 
 	void drawIR( float x, float y, float w, float h );
 
-	ofVboMesh &getPointCloud();
+	ofMesh &getPointCloud();
 
 	vector<Skeleton> &getSkeletons();
 	void drawSkeleton(int index);
@@ -212,7 +212,7 @@ class ofxKinectCommonBridge : protected ofThread {
   	bool bInited;
 	bool bStarted;
 	vector<Skeleton> skeletons;
-	ofVboMesh pointCloud;
+	ofMesh pointCloud;
 	ofMesh pointCloudBack;
 	ofMatrix4x4 pointCloudTransform;
 	unsigned int pointCloudNthPixelAsPoint;
