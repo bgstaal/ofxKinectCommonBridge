@@ -118,6 +118,8 @@ ofxKinectCommonBridge::ofxKinectCommonBridge(){
 void ofxKinectCommonBridge::setDepthClipping(float nearClip, float farClip){
 	nearClipping = nearClip;
 	farClipping = farClip;
+	nearClippingSkeletonSpace = nearClip / 1000.0f;
+	farClippingSkeletonSpace = farClip / 1000.0f;
 	nearColor = bNearWhite ? 255 : 0;
 	farColor = bNearWhite ? 0 : 255;
 }
@@ -1012,24 +1014,22 @@ void ofxKinectCommonBridge::threadedFunction(){
 
 			for (int i = 0; i < numColorPixels; i++)
 			{
-				
 				if (i % pointCloudNthPixelAsPoint == 0)
 				{
 					Vector4 p = points[i];
 
-					if (bPointCloudUseColor)
+					if (p.z > nearClippingSkeletonSpace && p.z < farClippingSkeletonSpace)
 					{
-						unsigned char *pix = videoPixelsBack.getPixels();
-						int cIndex = i*4;
-						colors.push_back(ofFloatColor(pix[cIndex+2] / 255.0f, pix[cIndex + 1] / 255.0f, pix[cIndex] / 255.0f));
-
-						//pointCloudBack.addColor();
-					}
+						if (bPointCloudUseColor)
+						{
+							unsigned char *pix = videoPixelsBack.getPixels();
+							int cIndex = i*4;
+							colors.push_back(ofFloatColor(pix[cIndex+2] / 255.0f, pix[cIndex + 1] / 255.0f, pix[cIndex] / 255.0f));
+						}
 					
-					verts.push_back(ofVec3f(p.x, p.y, p.z) * pointCloudTransform);
-					//pointCloudBack.addVertex(vert);
+						verts.push_back(ofVec3f(p.x, p.y, p.z) * pointCloudTransform);
+					}
 				}
-				
 			}
 
 			delete[] points;

@@ -222,7 +222,7 @@ class ofxKinectCommonBridge : protected ofThread {
 	void updateDepthPixels();
 	void updateIRPixels();
 	bool bNearWhite;
-	float nearClipping, farClipping;
+	float nearClipping, nearClippingSkeletonSpace, farClipping, farClippingSkeletonSpace;
 	unsigned char nearColor, farColor;
 
 	void updateFaceTrackingData( IFTResult* ftResult );
