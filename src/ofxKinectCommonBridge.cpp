@@ -3,6 +3,11 @@
 // speech event declaration
 ofEvent<ofxKCBSpeechEvent> ofxKCBSpeechEvent::event;
 
+ofxKinectCommonBridge::~ofxKinectCommonBridge()
+{
+	waitForThread(true);
+}
+
 ofVec3f ofxKCBFace::getLocationByIdentifier(FACE_POSITIONS position)
 {
 	return mesh.getVertex( (int) position );

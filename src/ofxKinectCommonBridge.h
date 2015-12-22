@@ -101,6 +101,7 @@ typedef map<_NUI_SKELETON_POSITION_INDEX, SkeletonBone> Skeleton;
 class ofxKinectCommonBridge : protected ofThread {
   public:
 	ofxKinectCommonBridge();
+	~ofxKinectCommonBridge();
 
 	// new API
 	bool initSensor( int id = 0 );
