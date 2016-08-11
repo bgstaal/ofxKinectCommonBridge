@@ -1012,38 +1012,39 @@ void ofxKinectCommonBridge::threadedFunction(){
 			int numDepthPixels = depthFormat.dwWidth * depthFormat.dwHeight;
 
 			Vector4 *points = new Vector4[numColorPixels];
-			KinectMapColorFrameToSkeletonFrame(hKinect, NUI_IMAGE_TYPE_COLOR, colorRes, depthRes, numDepthPixels, depthImagePixelsBack.get(), numColorPixels, points);
-
-			vector<ofFloatColor> colors;
-			vector<ofVec3f> verts;
-
-			for (int i = 0; i < numColorPixels; i++)
+			if (SUCCEEDED(KinectMapColorFrameToSkeletonFrame(hKinect, NUI_IMAGE_TYPE_COLOR, colorRes, depthRes, numDepthPixels, depthImagePixelsBack.get(), numColorPixels, points)))
 			{
-				if (i % pointCloudNthPixelAsPoint == 0)
-				{
-					Vector4 p = points[i];
+				vector<ofFloatColor> colors;
+				vector<ofVec3f> verts;
 
-					if (p.z > nearClippingSkeletonSpace && p.z < farClippingSkeletonSpace)
+				for (int i = 0; i < numColorPixels; i++)
+				{
+					if (i % pointCloudNthPixelAsPoint == 0)
 					{
-						if (bPointCloudUseColor)
+						Vector4 p = points[i];
+
+						if (p.z > nearClippingSkeletonSpace && p.z < farClippingSkeletonSpace)
 						{
-							unsigned char *pix = videoPixelsBack.getPixels();
-							int cIndex = i*4;
-							colors.push_back(ofFloatColor(pix[cIndex+2] / 255.0f, pix[cIndex + 1] / 255.0f, pix[cIndex] / 255.0f));
-						}
+							if (bPointCloudUseColor)
+							{
+								unsigned char *pix = videoPixelsBack.getPixels();
+								int cIndex = i*4;
+								colors.push_back(ofFloatColor(pix[cIndex+2] / 255.0f, pix[cIndex + 1] / 255.0f, pix[cIndex] / 255.0f));
+							}
 					
-						verts.push_back(ofVec3f(p.x, p.y, p.z) * pointCloudTransform);
+							verts.push_back(ofVec3f(p.x, p.y, p.z) * pointCloudTransform);
+						}
 					}
 				}
+
+				lock();
+					pointCloudBack.clear();
+					pointCloudBack.addVertices(verts);
+					if (bPointCloudUseColor) pointCloudBack.addColors(colors);
+				unlock();
 			}
-
+			
 			delete[] points;
-
-			lock();
-				pointCloudBack.clear();
-				pointCloudBack.addVertices(verts);
-				if (bPointCloudUseColor) pointCloudBack.addColors(colors);
-			unlock();
 		}
 
 		ofSleepMillis(10);
